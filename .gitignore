@@ -1,0 +1,25 @@
+# Dependencies / generated files
+node_modules/
+dist/
+build/
+.cache/
+*.log
+
+# Secrets
+.env
+.env.*
+*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Pi runtime state should not live in this package repo
+sessions/
+npm/
+git/
+auth*
+trust.json
+settings.json
