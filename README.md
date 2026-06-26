@@ -9,6 +9,17 @@ extensions/   # TypeScript/JavaScript Pi extensions
 skills/       # Agent Skills directories containing SKILL.md
 ```
 
+## Included extensions
+
+| Extension | Type | Description |
+|-----------|------|-------------|
+| **subagents** | Tool | `subagent` tool — spawn isolated scout / researcher / worker sub-agents with parallel execution |
+| **context** | Command | `/context` — visualize session token usage as a colored grid with per-tool / per-role breakdown |
+| **memory** | Feature | `/memory` (Alt+M) — persistent `MEMORY.md` project memory with toggle; agent auto-reads/updates |
+| **ask-user-question** | Tool | `ask_user_question` tool — let the LLM ask you structured single/multi-choice or free-text questions |
+| **exa** | Tool | `web_search` / `web_fetch` tools — Exa-powered web search via MCP |
+| **btw** | Command | `/btw <question>` — ask a quick side question; answer shown in a temporary overlay, zero history cost |
+
 ## Local install
 
 From this repository root:
