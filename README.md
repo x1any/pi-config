@@ -50,7 +50,7 @@ Or keep them together in Pi's user `settings.json`:
 ```json
 {
   "packages": [
-    "git:github.com:x1any/pi-config",
+    "git:github.com/x1any/pi-config",
     "npm:@upstash/context7-pi",
     "npm:@davecodes/pi-dcp",
     "npm:@ff-labs/pi-fff"
@@ -65,7 +65,7 @@ For higher Context7 quotas, set `CONTEXT7_API_KEY` before launching Pi. Avoid in
 ## Git install from another machine
 
 ```bash
-pi install git:github.com:x1any/pi-config
+pi install git:github.com/x1any/pi-config
 ```
 
 ## Add a skill
