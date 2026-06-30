@@ -18,8 +18,15 @@ skills/       # Agent Skills directories containing SKILL.md
 | **memory** | Feature | `/memory` (Alt+M) — persistent `MEMORY.md` project memory with toggle; agent auto-reads/updates |
 | **ask-user-question** | Tool | `ask_user_question` tool — let the LLM ask you structured single/multi-choice or free-text questions |
 | **exa** | Tool | `web_search` / `web_fetch` tools — Exa-powered web search via MCP |
-| **qmd** | Tool | `qmd_query` / `qmd_get` / `qmd_multi_get` / `qmd_status` — search and retrieve local QMD knowledge via MCP |
 | **btw** | Command | `/btw <question>` — ask a quick side question; answer shown in a temporary overlay, zero history cost |
+
+## Included skills
+
+| Skill | Description |
+|-------|-------------|
+| **qmd** | `/skill:qmd` — search local markdown knowledge bases with QMD, retrieve sources, and cite docids/lines |
+| **grilling** | Stress-test a plan before building; triggered by “grill” / “grill me” requests |
+| **orchestrator** | Top-level session orchestration rules for subagent routing, context hygiene, and implementation discipline |
 
 ## Local install
 
@@ -36,29 +43,25 @@ After editing resources, reload Pi:
 /reload
 ```
 
-## QMD extension setup
+## QMD skill setup
 
-The `qmd` extension exposes read-only tools for an existing QMD install. QMD indexing stays manual:
+The `qmd` skill no longer registers Pi extension tools. It provides on-demand instructions for using an existing QMD CLI setup, normally through `qmd query`, `qmd get`, and `qmd multi-get` via Bash. Invoke it explicitly with `/skill:qmd` or let Pi load it when a task matches.
+
+QMD indexing stays manual:
 
 ```bash
 npm install -g @tobilu/qmd
+qmd init  # Create a project-local .qmd index in the current directory
 qmd collection add ~/path/to/markdown --name myknowledge
 qmd context add qmd://myknowledge "Describe this knowledge base"
+qmd update
 qmd embed
-qmd mcp --http --daemon
-export PI_QMD_MCP_URL=http://localhost:8181/mcp
+qmd status
 ```
 
-Useful environment variables:
+Run `qmd init` from the project or knowledge-base directory that should own the `.qmd` index. Skip it when you intentionally use an existing default or named QMD index.
 
-- `PI_QMD_MCP_URL` — HTTP MCP endpoint; if unset, the extension starts `qmd mcp` over stdio on first use.
-- `PI_QMD_COMMAND` — command for stdio mode, default `qmd`.
-- `PI_QMD_INDEX` — optional named QMD index for stdio mode.
-- `PI_QMD_TOOL_PREFIX` — tool prefix, default `qmd_`.
-- `PI_QMD_ALLOW_REMOTE=1` — allow non-localhost MCP URLs (off by default because QMD MCP has no auth).
-- `PI_QMD_GET_DEFAULT_MAX_LINES` / `PI_QMD_MULTI_GET_DEFAULT_MAX_LINES` / `PI_QMD_MULTI_GET_DEFAULT_MAX_BYTES` — default retrieval bounds.
-
-Inside Pi, `/qmd-setup` shows setup commands and `/qmd-status` checks index health.
+Inside Pi, use `/skill:qmd` for the workflow and `qmd status` for health checks. The old `/qmd-setup`, `/qmd-status`, and `qmd_*` extension tools are intentionally removed.
 
 ## Recommended Pi packages
 
