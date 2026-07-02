@@ -24,7 +24,6 @@ skills/       # Agent Skills directories containing SKILL.md
 
 | Skill | Description |
 |-------|-------------|
-| **qmd** | `/skill:qmd` — search local markdown knowledge bases with QMD, retrieve sources, and cite docids/lines |
 | **grilling** | Stress-test a plan before building; triggered by “grill” / “grill me” requests |
 | **orchestrator** | Top-level session orchestration rules for subagent routing, context hygiene, and implementation discipline |
 
@@ -42,26 +41,6 @@ After editing resources, reload Pi:
 ```text
 /reload
 ```
-
-## QMD skill setup
-
-The `qmd` skill no longer registers Pi extension tools. It provides on-demand instructions for using an existing QMD CLI setup, normally through `qmd query`, `qmd get`, and `qmd multi-get` via Bash. Invoke it explicitly with `/skill:qmd` or let Pi load it when a task matches.
-
-QMD indexing stays manual:
-
-```bash
-npm install -g @tobilu/qmd
-qmd init  # Create a project-local .qmd index in the current directory
-qmd collection add ~/path/to/markdown --name myknowledge
-qmd context add qmd://myknowledge "Describe this knowledge base"
-qmd update
-qmd embed
-qmd status
-```
-
-Run `qmd init` from the project or knowledge-base directory that should own the `.qmd` index. Skip it when you intentionally use an existing default or named QMD index.
-
-Inside Pi, use `/skill:qmd` for the workflow and `qmd status` for health checks. The old `/qmd-setup`, `/qmd-status`, and `qmd_*` extension tools are intentionally removed.
 
 ## Recommended Pi packages
 
