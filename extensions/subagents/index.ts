@@ -35,7 +35,17 @@ import { Type } from "typebox";
 export interface AgentConfig {
     name: string;
     description: string;
+    /**
+     * Tool whitelist for this agent. Supports a wildcard `"*"` entry that
+     * grants access to every known tool. When `"*"` is present, the optional
+     * `tools_exclude` field can blacklist specific tools from that set.
+     */
     tools: string[];
+    /**
+     * Tools to exclude when `tools` includes the wildcard `"*"`. Ignored when
+     * `tools` is a conventional whitelist (no `"*"` entry).
+     */
+    tools_exclude?: string[];
     model: string;
     thinking: string;
     systemPrompt: string;
@@ -200,12 +210,29 @@ const BUILTIN_TOOLS = new Set([
     "ls",
 ]);
 
+/** Tools provided by external extensions that pi auto-discovers at startup.
+ *  We don't pass `--extension` for these, but they must be known to
+ *  ALL_KNOWN_TOOLS so wildcard+exclude whitelist computation includes them. */
+const EXTERNAL_TOOLS = new Set([
+    "web_search",
+    "web_fetch",
+]);
+
 // Tools implemented by this extension itself. Other extension-provided tools
 // are resolved by pi's normal extension discovery.
 const LOCAL_TOOL_EXTENSIONS: Record<string, string> = {
     safe_bash: path.join(TOOLS_DIR, "safe-bash.ts"),
     subagent: path.join(EXT_DIR, "index.ts"),
 };
+
+/** Union of every tool name this extension can discover — built-in pi tools
+ *  plus the local extension tools above. Used when computing the effective
+ *  whitelist for wildcard/blacklist mode (`tools: "*"` + `tools_exclude`). */
+const ALL_KNOWN_TOOLS: Set<string> = new Set([
+    ...BUILTIN_TOOLS,
+    ...Object.keys(LOCAL_TOOL_EXTENSIONS),
+    ...EXTERNAL_TOOLS,
+]);
 
 function parseListField(value: unknown): string[] {
     if (Array.isArray(value))
@@ -263,6 +290,7 @@ function loadAgents(): AgentConfig[] {
             parseFrontmatter<Record<string, unknown>>(content);
         if (!frontmatter.name) continue;
         const tools = parseListField(frontmatter.tools);
+        const toolsExclude = parseListField(frontmatter.tools_exclude);
         const subagentAgents = parseListField(frontmatter.subagent_agents);
         const config: AgentConfig = {
             name: String(frontmatter.name),
@@ -271,6 +299,7 @@ function loadAgents(): AgentConfig[] {
                     ? frontmatter.description
                     : "",
             tools,
+            tools_exclude: toolsExclude.length > 0 ? toolsExclude : undefined,
             model:
                 typeof frontmatter.model === "string"
                     ? frontmatter.model
@@ -308,11 +337,9 @@ function resolvePiBinary(): { command: string; baseArgs: string[] } {
 // ── Formatting Utilities ──────────────────────────────────────────────
 
 function formatTokens(n: number): string {
-    return n < 1000
-        ? String(n)
-        : n < 10000
-          ? `${(n / 1000).toFixed(1)}k`
-          : `${Math.round(n / 1000)}k`;
+    if (n < 1000) return String(n);
+    if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+    return `${Math.round(n / 1000)}k`;
 }
 
 function formatDuration(ms: number): string {
@@ -373,7 +400,6 @@ function truncLine(text: string, maxWidth: number): string {
         text = text.replace(/\r?\n/g, "↵ ");
     }
     if (visibleWidth(text) <= maxWidth) return text;
-    // Simple truncation - strip to fit
     let result = "";
     let width = 0;
     for (let i = 0; i < text.length; i++) {
@@ -435,22 +461,53 @@ async function buildPiArgs(
     const allowlist: string[] = [];
     const extensionPaths = new Set<string>();
 
-    for (const tool of agent.tools) {
-        if (BUILTIN_TOOLS.has(tool)) {
-            allowlist.push(tool);
-            continue;
-        }
-        allowlist.push(tool);
-        const extPath = LOCAL_TOOL_EXTENSIONS[tool];
-        if (extPath) extensionPaths.add(extPath);
-    }
+    const isWildcard =
+        agent.tools.length === 1 && agent.tools[0] === "*";
 
-    if (allowlist.length > 0) {
-        // --tools is a unified allowlist that applies to built-in, extension, and custom tools.
-        args.push("--tools", allowlist.join(","));
+    if (isWildcard) {
+        // Wildcard mode: grant everything, optionally subtract blacklisted tools.
+        const excludeSet = new Set(agent.tools_exclude ?? []);
+        if (excludeSet.size > 0) {
+            // Compute effective whitelist = all known tools minus excluded.
+            // NOTE: only tools listed in ALL_KNOWN_TOOLS are included in the
+            // computed whitelist. Extension tools not in that set won't be
+            // available unless the extension is loaded separately.
+            for (const tool of ALL_KNOWN_TOOLS) {
+                if (!excludeSet.has(tool)) allowlist.push(tool);
+            }
+            args.push("--tools", allowlist.join(","));
+            // Load non-excluded local extensions.
+            for (const [tool, extPath] of Object.entries(
+                LOCAL_TOOL_EXTENSIONS,
+            )) {
+                if (!excludeSet.has(tool)) extensionPaths.add(extPath);
+            }
+        } else {
+            // Pure wildcard — don't pass --tools at all; pi defaults to every
+            // built-in and extension tool that is loaded.
+            for (const extPath of Object.values(LOCAL_TOOL_EXTENSIONS)) {
+                extensionPaths.add(extPath);
+            }
+        }
     } else {
-        // Agent declared no tools — disable everything.
-        args.push("--no-tools");
+        // Conventional whitelist (existing behaviour).
+        for (const tool of agent.tools) {
+            if (BUILTIN_TOOLS.has(tool)) {
+                allowlist.push(tool);
+                continue;
+            }
+            allowlist.push(tool);
+            const extPath = LOCAL_TOOL_EXTENSIONS[tool];
+            if (extPath) extensionPaths.add(extPath);
+        }
+
+        if (allowlist.length > 0) {
+            // --tools is a unified allowlist that applies to built-in, extension, and custom tools.
+            args.push("--tools", allowlist.join(","));
+        } else {
+            // Agent declared no tools — disable everything.
+            args.push("--no-tools");
+        }
     }
 
     for (const extPath of extensionPaths) {
@@ -781,7 +838,6 @@ async function runSubagent(
         }
     });
 
-    // Cleanup temp dir
     try {
         fs.rmSync(tempDir, { recursive: true, force: true });
     } catch {}
@@ -793,7 +849,6 @@ async function runSubagent(
     if (progress.error)
         result.output = result.output || `Error: ${progress.error}`;
 
-    // Truncate output if very large
     if (result.output.length > DEFAULT_MAX_BYTES) {
         const trunc = truncateHead(result.output, {
             maxLines: DEFAULT_MAX_LINES,
@@ -1029,12 +1084,14 @@ function renderAgentProgress(
     if (prog.tokens > 0) {
         const ctxStr = formatContextUsage(prog.tokens, r.contextWindow);
         const pct = r.contextWindow ? (prog.tokens / r.contextWindow) * 100 : 0;
-        const coloredCtx =
-            pct > 90
-                ? theme.fg("error", ctxStr)
-                : pct > 70
-                  ? theme.fg("warning", ctxStr)
-                  : theme.fg("dim", ctxStr);
+        let coloredCtx: string;
+        if (pct > 90) {
+            coloredCtx = theme.fg("error", ctxStr);
+        } else if (pct > 70) {
+            coloredCtx = theme.fg("warning", ctxStr);
+        } else {
+            coloredCtx = theme.fg("dim", ctxStr);
+        }
         usageParts.push(coloredCtx);
     }
     if (usageParts.length) {
@@ -1196,12 +1253,14 @@ export default function (pi: ExtensionAPI) {
                         0,
                     );
                 }
-                const taskPreview = args.task
-                    ? (args.task.length > 60
-                          ? args.task.slice(0, 60) + "…"
-                          : args.task
-                      ).replace(/\n/g, " ")
-                    : "";
+                let taskPreview = "";
+                if (args.task) {
+                    const truncated =
+                        args.task.length > 60
+                            ? args.task.slice(0, 60) + "…"
+                            : args.task;
+                    taskPreview = truncated.replace(/\n/g, " ");
+                }
                 return new Text(
                     `${theme.fg("toolTitle", theme.bold("subagent"))} ${theme.fg("accent", args.agent)} ${theme.fg("dim", taskPreview)}`,
                     0,
@@ -1212,10 +1271,13 @@ export default function (pi: ExtensionAPI) {
             // Expanded view: header + full streaming task body. Reuse the previous
             // Container so we don't allocate on every streamed token (same pattern
             // the built-in write/edit tools use via context.lastComponent).
-            const c =
-                context.lastComponent instanceof Container
-                    ? (context.lastComponent.clear(), context.lastComponent)
-                    : new Container();
+            let c: Container;
+            if (context.lastComponent instanceof Container) {
+                context.lastComponent.clear();
+                c = context.lastComponent;
+            } else {
+                c = new Container();
+            }
             const agentLabel = args.agent
                 ? ` ${theme.fg("accent", args.agent)}`
                 : "";

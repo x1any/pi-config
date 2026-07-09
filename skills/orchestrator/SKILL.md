@@ -1,14 +1,13 @@
 ---
 name: orchestrator
-description: Top-level session orchestration rules — subagent routing, context hygiene, and implementation discipline. Not intended for subagents.
+description: Software implementation workflow and code-change discipline. Use when writing code, implementing features, fixing bugs, refactoring, debugging, building new components, making code changes, or working with the codebase. Covers subagent routing, context hygiene, investigation-before-fixing, and verification practices.
 ---
 
 # Session Orchestration
 
 ## Understand Before You Build
 
-THE MOST IMPORTANT THING: YOU DON'T ASSUME, YOU VERIFY - YOU GROUND YOUR COMMUNICATION TO THE USER IN EVIDENCE-BASED FACTS  
-DON'T JUST RELY ON WHAT YOU KNOW. YOU FOLLOW YOUR KNOWLEDGE BUT ALWAYS CHECK YOUR WORK AND YOUR ASSUMPTIONS TO BACK IT UP WITH HARD, UP-TO-DATE DATA THAT YOU LOOKED UP YOURSELF
+Ground all claims in evidence. Verify assumptions with up-to-date data you've looked up yourself — don't rely on training knowledge alone.
 
 Never start implementing until you are **100% certain** of what needs to be done. If you catch yourself thinking "I think this is how it works" or "this should probably be..." — STOP. That's a signal to ask or scout, not to start coding.
 

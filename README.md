@@ -96,6 +96,43 @@ description: Describe exactly when Pi should use this skill.
 Instructions...
 ```
 
+## Add an agent
+
+Agent configs live in `extensions/subagents/agents/` as `.md` files with YAML frontmatter.
+
+```markdown
+---
+name: my-agent
+description: What this agent does — shown in tool descriptions
+tools: "*"
+tools_exclude: bash
+model: deepseek/deepseek-v4-flash
+thinking: xhigh
+---
+
+System prompt (body).
+```
+
+### Tool configuration
+
+| Syntax | Behavior |
+|---|---|
+| `tools: read, grep, find` | **Whitelist** — only these tools (default) |
+| `tools: "*"` | **Wildcard** — every known tool |
+| `tools: "*"` + `tools_exclude: bash` | All known tools minus the blacklisted ones |
+
+Known tools include pi built-ins (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`), local extension tools (`safe_bash`, `subagent`), and externally discovered tools (`web_search`, `web_fetch` from the exa extension).
+
+### Restricting subagent spawns
+
+If the agent has the `subagent` tool, the `subagent_agents` field limits which child agents it can spawn:
+
+```yaml
+subagent_agents: scout, researcher
+```
+
+Default (absent): the agent sees all registered sub-agents.
+
 ## Add an extension
 
 ```text
