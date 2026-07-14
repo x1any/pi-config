@@ -24,7 +24,6 @@ skills/       # Agent Skills directories containing SKILL.md
 
 | Skill | Description |
 |-------|-------------|
-| **grilling** | Stress-test a plan before building; triggered by “grill” / “grill me” requests |
 | **orchestrator** | Top-level session orchestration rules for subagent routing, context hygiene, and implementation discipline |
 
 ## Local install
