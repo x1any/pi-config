@@ -5,47 +5,54 @@ description: Software implementation workflow and code-change discipline. Use wh
 
 # Session Orchestration
 
+## Role Ownership
+
+The parent agent owns problem framing, scope, implementation planning, trade-offs, delegation, integration, and final verification. Subagents provide bounded evidence or execute clearly specified work; they do not replace the parent agent's judgment.
+
 ## Understand Before You Build
 
-Ground all claims in evidence. Verify assumptions with up-to-date data you've looked up yourself — don't rely on training knowledge alone.
+Ground decisions in evidence. Verify assumptions with current code, command output, or authoritative documentation rather than training knowledge alone.
 
-Never start implementing until you are **100% certain** of what needs to be done. If you catch yourself thinking "I think this is how it works" or "this should probably be..." — STOP. That's a signal to ask or scout, not to start coding.
+Resolve uncertainties that could materially change the implementation before editing. If the intended behavior is ambiguous, ask the user. If the codebase is unfamiliar, gather evidence before choosing an approach.
 
-**Fill knowledge gaps with:**
-- **`ask_user_question`** — ambiguous requirements, preference between approaches, any detail that would materially change the implementation. One question per call. Never guess what the user wants.
-- **`subagent` scout** — how the codebase works, what patterns exist, which files are involved. Tools: `read`, `grep`, `find`, `ls`. Fast and cheap (Haiku).
-- **`subagent` researcher** — API docs, library behavior, migration guides, external knowledge. Tools: `web_search`, `web_fetch`.
-- **`subagent` worker** — isolated code changes. Tools: `read`, `write`, `edit`, `safe_bash`. Use when the change is well-specified and doesn't need back-and-forth.
+**Use the right source for each knowledge gap:**
+- **`ask_user_question`** — clarify requirements, preferences, or scope decisions. Ask one question per call and do not delegate user decisions to a subagent.
+- **`subagent` scout** — perform read-only reconnaissance: locate files, trace behavior and references, identify constraints and tests, and report exact paths and line ranges. A scout must not choose the solution, define scope, or produce the implementation plan.
+- **`subagent` researcher** — collect authoritative external facts such as API behavior, migration guidance, and version-specific documentation. It informs decisions but does not make them.
+- **`subagent` worker** — execute an isolated, well-specified implementation task. Use it only when the goal, constraints, and verification are clear and no user interaction is needed.
 
-**Before any non-trivial implementation, you must know:**
-- Exactly what the change does (confirmed with user)
-- Exactly which files are involved (confirmed with scout)
-- Exactly which APIs/patterns to use (confirmed with scout or researcher)
-
-If any of those are fuzzy, you're not ready to implement.
+**Before any non-trivial implementation:**
+- Requirements and acceptance criteria are clear.
+- Relevant code paths, dependencies, constraints, and tests are identified.
+- Version-sensitive APIs or patterns are verified when applicable.
+- The parent agent has synthesized the evidence into a minimal implementation plan.
 
 ## Context Hygiene
 
-Your context window is a finite, non-renewable resource. Every file you read directly stays in your context forever.
+Your context window is finite. Keep broad reconnaissance out of the parent context when a concise scout report is enough.
 
-**Default to scouts for exploration.** If the task involves understanding how something works across multiple files, finding where something is defined/used, investigating a bug, or checking whether a change is safe — **send a scout.** You get a concise summary back. Your context stays clean.
+**Default to a scout for multi-file exploration.** Ask for factual findings: definitions, call paths, references, dependencies, existing patterns, tests, risks, and unresolved questions. Do not ask a scout to recommend an approach or write a plan.
 
-**Use direct reads/greps ONLY when:**
-- You need to verify 1-2 lines right before making an edit
-- You already know exactly what file and what you're looking for
-- The answer is a single grep hit
+**Use direct reads/searches when:**
+- The task is a tiny, targeted edit.
+- You already know the exact file or symbol to inspect.
+- You need exact source text immediately before editing.
+- One focused lookup is sufficient.
 
-**Never explore a codebase by reading files yourself.** That's what scouts are for.
+Do not repeatedly read broad areas of the codebase in the parent context. Dispatch independent reconnaissance and research tasks in parallel when useful, with at most four concurrent subagents.
 
-**Use parallel mode** (`tasks[]`) when dispatching multiple independent subagents — e.g. a scout investigating file structure while a researcher looks up API docs. Max 4 concurrent.
+### Planning After Reconnaissance
+
+After evidence is returned, the parent agent must validate it, resolve remaining ambiguities, choose the approach, and own the implementation plan.
+
+When delegating to a worker, provide a self-contained brief with the goal, relevant paths, constraints, acceptance criteria, and verification commands. The worker may implement and diagnose local failures, but must not broaden scope or redefine the plan. The parent agent reviews the resulting diff and performs final verification.
 
 ### When NOT to Use Subagents
 
-- **Tiny targeted edits** where you already know the exact file and line — just do it directly.
-- **Anything requiring back-and-forth with the user** — subagents can't ask questions, they run to completion.
-- **When you already scouted** — don't re-scout the same code. Use the context you have.
-- **Subagents have NO context from your conversation** — include ALL necessary context in the task description. File paths, patterns, constraints, expected output format.
-
+- **Tiny targeted edits** where you already know the exact file and line — make the edit directly.
+- **Anything requiring user interaction** — subagents cannot ask follow-up questions.
+- **Already-completed reconnaissance** — reuse the evidence instead of re-scouting.
+- **Tasks without a self-contained brief** — subagents have no conversation context.
 
 ## Implementation Discipline
 

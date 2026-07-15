@@ -120,7 +120,7 @@ System prompt (body).
 | `tools: "*"` | **Wildcard** — every known tool |
 | `tools: "*"` + `tools_exclude: bash` | All known tools minus the blacklisted ones |
 
-Known tools include pi built-ins (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`), local extension tools (`safe_bash`, `subagent`), and externally discovered tools (`web_search`, `web_fetch` from the exa extension).
+Known tools include pi built-ins (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`), the local extension tool (`subagent`), and externally discovered tools (`web_search`, `web_fetch` from the exa extension).
 
 ### Restricting subagent spawns
 

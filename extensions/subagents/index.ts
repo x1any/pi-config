@@ -132,7 +132,6 @@ interface ExtensionConfig {
 
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const AGENTS_DIR = path.join(EXT_DIR, "agents");
-const TOOLS_DIR = path.join(EXT_DIR, "tools");
 const CONFIG_PATH = path.join(EXT_DIR, "config.json");
 const DEFAULT_MAX_CONCURRENCY = 4;
 const MAX_CONCURRENCY_LIMIT = 32;
@@ -221,7 +220,6 @@ const EXTERNAL_TOOLS = new Set([
 // Tools implemented by this extension itself. Other extension-provided tools
 // are resolved by pi's normal extension discovery.
 const LOCAL_TOOL_EXTENSIONS: Record<string, string> = {
-    safe_bash: path.join(TOOLS_DIR, "safe-bash.ts"),
     subagent: path.join(EXT_DIR, "index.ts"),
 };
 
@@ -367,7 +365,6 @@ function formatToolPreview(
 ): string {
     switch (name) {
         case "bash":
-        case "safe_bash":
             return `$ ${((args.command as string) || "").slice(0, 80)}`;
         case "read":
             return `read ${(args.path as string) || ""}`;

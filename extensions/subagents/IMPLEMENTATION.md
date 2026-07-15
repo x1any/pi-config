@@ -129,7 +129,6 @@ read, write, edit, bash, grep, find, ls
 
 本扩展只显式映射自己实现的工具：
 
-- `safe_bash` -> `tools/safe-bash.ts`
 - `subagent` -> 当前扩展自身 `index.ts`
 
 其他扩展提供的工具（如 `web_search` / `web_fetch`）不硬编码到具体扩展文件，由 pi 的正常扩展发现机制提供。
@@ -377,12 +376,10 @@ pi.registerTool({ name: "subagent", ... })
 - 子进程使用 `--no-session`，不写入普通会话。
 - 子进程工具由 `--tools` allowlist 限制。
 - 嵌套 Agent 由 `PI_SUBAGENT_ALLOWED` 限制。
-- `worker` 使用 `safe_bash` 而不是原生 `bash`。
 - stderr 和最终输出都有大小限制。
 
 但仍需注意：
 
-- `safe_bash` 是黑名单式保护，不是完整沙箱。
 - 嵌套并发限制不是全局限制。
 - 如果未来允许复杂自定义 Agent 图，建议增加 `maxDepth` 或循环检测。
 - 子进程默认仍可能继承父进程环境变量，敏感环境隔离可进一步加强。
@@ -398,8 +395,6 @@ extensions/subagents/
     scout.md                  # 只读代码侦察 Agent
     researcher.md             # Web 研究 Agent
     worker.md                 # 可改文件的实现 Agent
-  tools/
-    safe-bash.ts              # worker 使用的安全 bash 包装工具
 ```
 
 ## 一句话总结

@@ -2,7 +2,6 @@
 name: worker
 description: General-purpose worker — reads, writes, and edits code
 tools: "*"
-tools_exclude: bash
 subagent_agents: scout, researcher
 model: deepseek/deepseek-v4-flash
 thinking: xhigh
@@ -15,7 +14,7 @@ Work autonomously to complete the assigned task. All necessary context will be p
 Guidelines:
 - Read files before editing to understand existing code
 - Make targeted edits, not wholesale rewrites
-- Use safe_bash for running commands (tests, builds, installs, etc.)
+- Use bash for running commands (tests, builds, installs, etc.)
 - If something fails, diagnose and fix it
 - Report what you did and what changed when done
 
