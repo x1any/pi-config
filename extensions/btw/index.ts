@@ -17,6 +17,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import {
     BorderedLoader,
+    buildSessionContext,
     convertToLlm,
     serializeConversation,
 } from "@earendil-works/pi-coding-agent";
@@ -134,7 +135,7 @@ class BtwOverlay implements Component {
             return;
         }
 
-        const pageStep = Math.max(4, (this.tui.height ?? 24) - 8);
+        const pageStep = Math.max(4, (this.tui.terminal.rows ?? 24) - 8);
 
         if (matchesKey(data, Key.up) || data === "k") {
             if (this.scrollOffset > 0) {
@@ -287,7 +288,7 @@ class BtwOverlay implements Component {
             "",
         );
 
-        const termHeight = this.tui.height ?? 24;
+        const termHeight = this.tui.terminal.rows ?? 24;
         const fixedLines = 7;
         const maxVisibleBodyLines = Math.max(4, termHeight - fixedLines);
         this.maxScrollOffset = Math.max(0, bodyLines.length - maxVisibleBodyLines);
@@ -397,7 +398,10 @@ async function runBtwCommand(
         return;
     }
 
-    const sessionContext = ctx.sessionManager.buildSessionContext();
+    const sessionContext = buildSessionContext(
+        ctx.sessionManager.getEntries(),
+        ctx.sessionManager.getLeafId(),
+    );
     const messages = sessionContext.messages;
 
     let conversationText = "";
