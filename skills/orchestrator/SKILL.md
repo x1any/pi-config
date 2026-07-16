@@ -44,7 +44,7 @@ Do not repeatedly read broad areas of the codebase in the parent context. Dispat
 
 After evidence is returned, the parent agent must validate it, resolve remaining ambiguities, choose the approach, and own the implementation plan.
 
-When delegating to `execute`, provide a self-contained brief with the goal, relevant paths, constraints, acceptance criteria, and verification commands. The child may implement and diagnose local failures, but must not broaden scope or redefine the plan. The parent agent reviews the returned patch, applies it deliberately, and performs final verification in the main workspace.
+When delegating to `execute`, provide a self-contained brief with the goal, relevant paths, constraints, acceptance criteria, and verification commands. **All file paths in the task brief must be relative paths** (e.g., `src/foo.ts`, `skills/orchestrator/SKILL.md`), never absolute paths — the execute subagent runs in a separate temporary worktree where absolute paths from the parent workspace are invalid. The child may implement and diagnose local failures, but must not broaden scope or redefine the plan. The parent agent reviews the returned patch, applies it deliberately, and performs final verification in the main workspace.
 
 ### When NOT to Use Subagents
 
