@@ -1,6 +1,10 @@
 import {
+    keyHint,
     type ExtensionAPI,
+    type Theme,
+    type ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -246,6 +250,39 @@ class ExaMcpBridge {
 }
 
 // ---------------------------------------------------------------------------
+// Output helpers (for compact rendering)
+// ---------------------------------------------------------------------------
+
+function getTextOutput(result: { content?: PiContent[] }): string {
+    return (result.content ?? [])
+        .map((item) => {
+            if (item.type === "text") return item.text;
+            return `[image: ${item.mimeType}]`;
+        })
+        .join("\n\n")
+        .trim();
+}
+
+function ellipsize(text: string, maxLength: number): string {
+    const normalized = text.replace(/\s+/g, " ").trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function expandHint(): string {
+    try {
+        return keyHint("app.tools.expand", "to expand");
+    } catch {
+        return "Ctrl+O to expand";
+    }
+}
+
+function countSearchResults(raw: string): number {
+    const titles = raw.match(/^Title:/gm);
+    return titles ? titles.length : 0;
+}
+
+// ---------------------------------------------------------------------------
 // Shared tool execute factory
 // ---------------------------------------------------------------------------
 
@@ -367,8 +404,11 @@ export default async function exaExtension(pi: ExtensionAPI) {
     });
 
     for (const tool of EXA_TOOLS) {
+        const registeredName = piToolName(tool.name);
+        const isSearch = tool.name === "web_search";
+
         pi.registerTool({
-            name: piToolName(tool.name),
+            name: registeredName,
             label: tool.label,
             description: tool.description,
             promptSnippet: tool.promptSnippet,
@@ -378,6 +418,133 @@ export default async function exaExtension(pi: ExtensionAPI) {
             execute: makeExecute(bridge, tool, (error) => {
                 lastError = error;
             }),
+
+            renderCall(
+                args: unknown,
+                theme: Theme,
+                _context: { lastComponent?: unknown },
+            ) {
+                const text =
+                    (_context.lastComponent as Text | undefined) ??
+                    new Text("", 0, 0);
+                let content = theme.fg(
+                    "toolTitle",
+                    theme.bold(`${registeredName} `),
+                );
+                if (isSearch) {
+                    const q = (args as { query?: string }).query ?? "";
+                    content += theme.fg("accent", ellipsize(q, 90));
+                } else {
+                    const urls =
+                        (args as { urls?: string[] }).urls ?? [];
+                    content += theme.fg(
+                        "accent",
+                        urls.length === 1
+                            ? ellipsize(urls[0] ?? "", 100)
+                            : `${urls.length} URLs`,
+                    );
+                }
+                text.setText(content);
+                return text;
+            },
+
+            renderResult(
+                result: unknown,
+                options: ToolRenderResultOptions,
+                theme: Theme,
+                _context: { args?: unknown; lastComponent?: unknown },
+            ) {
+                const text =
+                    (_context.lastComponent as Text | undefined) ??
+                    new Text("", 0, 0);
+
+                if (options.isPartial) {
+                    text.setText(
+                        theme.fg(
+                            "warning",
+                            isSearch ? "Searching..." : "Fetching...",
+                        ),
+                    );
+                    return text;
+                }
+
+                const r = result as {
+                    content?: PiContent[];
+                    isError?: boolean;
+                };
+                const output = getTextOutput(r);
+
+                if (!output) {
+                    text.setText(theme.fg("dim", "No output"));
+                    return text;
+                }
+
+                if (r.isError) {
+                    text.setText(
+                        theme.fg(
+                            "error",
+                            output.split("\n")[0] || "Failed",
+                        ),
+                    );
+                    return text;
+                }
+
+                if (options.expanded) {
+                    // Full output
+                    const lines = output.split("\n");
+                    let content = "";
+                    for (const line of lines) {
+                        content += `${theme.fg("toolOutput", line)}\n`;
+                    }
+                    text.setText(content.trimEnd());
+                    return text;
+                }
+
+                // Collapsed summary
+                if (isSearch) {
+                    const n = countSearchResults(output);
+                    const q = (
+                        _context.args as { query?: string }
+                    )?.query;
+                    let content = theme.fg(
+                        "success",
+                        `✓ ${n} result${n === 1 ? "" : "s"}`,
+                    );
+                    if (q)
+                        content +=
+                            " " +
+                            theme.fg(
+                                "dim",
+                                `for "${ellipsize(q, 60)}"`,
+                            );
+                    content +=
+                        " " +
+                        theme.fg("dim", `(${expandHint()})`);
+                    text.setText(content);
+                } else {
+                    const urls =
+                        (
+                            _context.args as { urls?: string[] }
+                        )?.urls ?? [];
+                    const pageCount = urls.length || 1;
+                    const charCount = output.length;
+                    const lineCount = output.split("\n").length;
+                    let content = theme.fg(
+                        "success",
+                        `✓ fetched ${pageCount} page${pageCount === 1 ? "" : "s"}`,
+                    );
+                    content += theme.fg(
+                        "dim",
+                        ` (${charCount.toLocaleString()} chars, ${lineCount.toLocaleString()} lines`,
+                    );
+                    content += theme.fg(
+                        "dim",
+                        `, ${expandHint()})`,
+                    );
+                    text.setText(content);
+                }
+                return text;
+            },
         });
     }
 
