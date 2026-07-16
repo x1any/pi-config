@@ -14,7 +14,6 @@ skills/       # Agent Skills directories containing SKILL.md
 | Extension | Type | Description |
 |-----------|------|-------------|
 | **subagent** | Tool | `subagent` tool — run isolated read-only `inspect` tasks or worktree-backed `execute` tasks |
-| **context** | Command | `/context` — visualize session token usage as a colored grid with per-tool / per-role breakdown |
 | **memory** | Feature | `/memory` (Alt+M) — persistent `MEMORY.md` project memory with toggle; agent auto-reads/updates |
 | **ask-user-question** | Tool | `ask_user_question` tool — let the LLM ask you structured single/multi-choice or free-text questions |
 | **exa** | Tool | `web_search` / `web_fetch` tools — Exa-powered web search via MCP |
