@@ -14,6 +14,9 @@
 - `@earendil-works/pi-coding-agent`
   - `ExtensionAPI`：扩展注册
   - `ToolDefinition`：SDK 工具类型
+  - `keyHint` / `Theme` / `ToolRenderResultOptions`：TUI 渲染
+- `@earendil-works/pi-tui`
+  - `Text`：TUI 文本组件
 - `@modelcontextprotocol/sdk`
   - `Client`：MCP 客户端
   - `StreamableHTTPClientTransport`：HTTP MCP 传输层
@@ -31,16 +34,17 @@
 ## 结构概览
 
 ```
-index.ts (~270 行)
+index.ts (~550 行)
 ├── Types (PiContent, ExaTool)
 ├── Config 常量
 ├── EXA_TOOLS 工具定义
 ├── URL helpers (buildMcpUrl, publicUrl, piToolName)
 ├── toPiContent() — MCP → Pi 内容转换
 ├── ExaMcpBridge — MCP 连接管理
+├── Output helpers — getTextOutput, ellipsize, expandHint, countSearchResults
 ├── makeExecute() — 共享执行工厂
 ├── createExaSdkTools() — SDK 导出
-└── exaExtension() — 扩展入口
+└── exaExtension() — 扩展入口（含 renderCall/renderResult）
 ```
 
 ## MCP 桥接层
@@ -61,6 +65,32 @@ index.ts (~270 行)
 - `resource_link` → 文本摘要
 - 其他类型 → `JSON.stringify()`
 - 空 content → 回退为整个 result 的 JSON
+
+## TUI 折叠渲染
+
+两个工具都提供 `renderCall` 和 `renderResult`：
+
+### renderCall
+
+- `web_search`：`**web_search** query text…`
+- `web_fetch`：`**web_fetch** url 或 "N URLs"`
+
+### renderResult
+
+折叠状态（默认）：
+
+- `web_search`：`✓ N results for "query" (Ctrl+O to expand)`
+- `web_fetch`：`✓ fetched N pages (X chars, Y lines, Ctrl+O to expand)`
+
+展开状态（Ctrl+O 或点击展开）：
+
+- 两个工具都显示完整原始输出文本
+
+错误处理：
+
+- `isPartial`：显示 "Searching..." / "Fetching..."
+- `isError`：显示首行错误消息
+- 空输出：显示 "No output"
 
 ## 共享执行工厂
 
@@ -108,5 +138,5 @@ pi tool result + details
 
 - MCP 连接懒加载复用，避免每次调用重新连接。
 - 连接失败自动重连重试一次。
-- 不再提供自定义 TUI 渲染器；pi 使用默认渲染，完整输出始终对模型可见。
+- 提供简洁的折叠 TUI 渲染：收起时显示摘要行 + 展开提示，展开时显示完整输出。
 - `createExaSdkTools` 和扩展注册共享 `makeExecute()`，消除重复。
