@@ -3,10 +3,14 @@ export type SubagentMode = "inspect" | "execute";
 export interface ModePolicy {
     label: string;
     tools: readonly string[];
+    optionalTools: readonly string[];
     systemPrompt: string;
     usesWorktree: boolean;
     loadsWebTools: boolean;
 }
+
+const SEARCH_TOOL_RULES = `- Prefer fffind for path discovery and ffgrep for content searches when they are available.
+- Fall back to the built-in find and grep tools when FFF is unavailable or a search fails.`;
 
 const INSPECT_PROMPT = `You are an inspect subagent running in an isolated in-memory AgentSession.
 
@@ -14,6 +18,7 @@ Your job is read-only investigation. You may inspect the codebase, trace behavio
 
 Rules:
 - The task is self-contained; you have no access to the parent conversation.
+${SEARCH_TOOL_RULES}
 - Prefer direct evidence: exact file paths and line ranges for code, URLs for external sources.
 - Distinguish verified facts from uncertainty.
 - Keep the report focused enough for the parent agent to act without rereading everything.
@@ -28,6 +33,7 @@ Your job is to complete one clearly scoped implementation task without user inte
 
 Rules:
 - The task is self-contained; you have no access to the parent conversation.
+${SEARCH_TOOL_RULES}
 - Read relevant files and project instructions before editing.
 - Keep changes small and limited to the requested scope.
 - Do not commit, create branches, alter Git configuration, or touch files outside the worktree.
@@ -40,14 +46,16 @@ Rules:
 export const MODE_POLICIES: Record<SubagentMode, ModePolicy> = {
     inspect: {
         label: "Inspect",
-        tools: ["read", "grep", "find", "ls", "web_search", "web_fetch"],
+        tools: ["read", "fffind", "ffgrep", "find", "grep", "ls", "web_search", "web_fetch"],
+        optionalTools: ["fffind", "ffgrep"],
         systemPrompt: INSPECT_PROMPT,
         usesWorktree: false,
         loadsWebTools: true,
     },
     execute: {
         label: "Execute",
-        tools: ["read", "grep", "find", "ls", "edit", "write", "bash"],
+        tools: ["read", "fffind", "ffgrep", "find", "grep", "ls", "edit", "write", "bash"],
+        optionalTools: ["fffind", "ffgrep"],
         systemPrompt: EXECUTE_PROMPT,
         usesWorktree: true,
         loadsWebTools: false,

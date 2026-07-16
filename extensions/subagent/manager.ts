@@ -28,6 +28,33 @@ const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(EXT_DIR, "config.json");
 const RECENT_TOOL_LIMIT = 5;
 const UPDATE_THROTTLE_MS = 150;
+const FFF_PACKAGE_SOURCE = "npm:@ff-labs/pi-fff";
+const FFF_TOOL_NAMES = ["fffind", "ffgrep"] as const;
+
+function findActiveFffExtensionPath(pi: ExtensionAPI): string | undefined {
+    const activeTools = new Set(pi.getActiveTools());
+    if (FFF_TOOL_NAMES.some((name) => !activeTools.has(name))) return undefined;
+
+    const configuredTools = pi.getAllTools();
+    const fffTools = FFF_TOOL_NAMES.map((name) =>
+        configuredTools.find((tool) => tool.name === name),
+    );
+    const [findTool, grepTool] = fffTools;
+    if (!findTool || !grepTool) return undefined;
+
+    const isFffPackage = (source: string) =>
+        source === FFF_PACKAGE_SOURCE || source.startsWith(`${FFF_PACKAGE_SOURCE}@`);
+    if (
+        !isFffPackage(findTool.sourceInfo.source) ||
+        !isFffPackage(grepTool.sourceInfo.source) ||
+        findTool.sourceInfo.path !== grepTool.sourceInfo.path ||
+        !fs.existsSync(findTool.sourceInfo.path)
+    ) {
+        return undefined;
+    }
+
+    return findTool.sourceInfo.path;
+}
 
 const DEFAULT_CONFIG: SubagentConfig = {
     maxConcurrency: 3,
@@ -580,27 +607,54 @@ export class SubagentManager {
 
             webTools = policy.loadsWebTools ? createExaSdkTools() : undefined;
             const settingsManager = SettingsManager.inMemory();
-            const resourceLoader = new DefaultResourceLoader({
-                cwd: sessionCwd,
-                agentDir: getAgentDir(),
-                settingsManager,
-                noExtensions: true,
-                noSkills: true,
-                noPromptTemplates: true,
-                noThemes: true,
-                appendSystemPromptOverride: () => [policy.systemPrompt],
-            });
-            await resourceLoader.reload();
+            let fffExtensionPath = findActiveFffExtensionPath(this.pi);
+            const createResourceLoader = (extensionPath?: string) =>
+                new DefaultResourceLoader({
+                    cwd: sessionCwd,
+                    agentDir: getAgentDir(),
+                    settingsManager,
+                    additionalExtensionPaths: extensionPath ? [extensionPath] : [],
+                    noExtensions: true,
+                    noSkills: true,
+                    noPromptTemplates: true,
+                    noThemes: true,
+                    appendSystemPromptOverride: () => [policy.systemPrompt],
+                });
 
-            const extensionErrors = resourceLoader.getExtensions().errors;
-            if (extensionErrors.length > 0) {
-                throw new Error(
-                    `Failed to load subagent resources: ${extensionErrors
-                        .map((item) => `${item.path}: ${item.error}`)
-                        .join("; ")}`,
-                );
+            let resourceLoader = createResourceLoader(fffExtensionPath);
+            let resourceLoadError: unknown;
+            try {
+                await resourceLoader.reload();
+                const extensionErrors = resourceLoader.getExtensions().errors;
+                if (extensionErrors.length > 0) {
+                    resourceLoadError = new Error(
+                        `Failed to load subagent resources: ${extensionErrors
+                            .map((item) => `${item.path}: ${item.error}`)
+                            .join("; ")}`,
+                    );
+                }
+            } catch (error) {
+                resourceLoadError = error;
             }
 
+            if (resourceLoadError && fffExtensionPath) {
+                warn(
+                    `Failed to load @ff-labs/pi-fff for a subagent; using built-in find/grep: ${
+                        resourceLoadError instanceof Error
+                            ? resourceLoadError.message
+                            : String(resourceLoadError)
+                    }`,
+                );
+                fffExtensionPath = undefined;
+                resourceLoader = createResourceLoader();
+                await resourceLoader.reload();
+                resourceLoadError = undefined;
+            }
+            if (resourceLoadError) throw resourceLoadError;
+
+            const sessionToolNames = policy.tools.filter(
+                (name) => fffExtensionPath || !policy.optionalTools.includes(name),
+            );
             const { session } = await createAgentSession({
                 cwd: sessionCwd,
                 agentDir: getAgentDir(),
@@ -608,7 +662,7 @@ export class SubagentManager {
                 thinkingLevel: this.pi.getThinkingLevel(),
                 authStorage: ctx.modelRegistry.authStorage,
                 modelRegistry: ctx.modelRegistry,
-                tools: [...policy.tools, "report_result"],
+                tools: [...sessionToolNames, "report_result"],
                 customTools: [...(webTools?.tools ?? []), reportResultTool],
                 resourceLoader,
                 sessionManager: SessionManager.inMemory(sessionCwd),
@@ -616,7 +670,10 @@ export class SubagentManager {
             });
             handle.session = session;
 
-            const requiredTools = [...policy.tools, "report_result"];
+            const requiredTools = [
+                ...sessionToolNames.filter((name) => !policy.optionalTools.includes(name)),
+                "report_result",
+            ];
             const activeTools = new Set(session.getActiveToolNames());
             const missingTools = requiredTools.filter((name) => !activeTools.has(name));
             if (missingTools.length > 0) {

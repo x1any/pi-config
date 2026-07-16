@@ -101,8 +101,10 @@ The `subagent` tool intentionally exposes only two fixed modes:
 
 | Mode | Purpose | Workspace | Tools |
 |---|---|---|---|
-| `inspect` | Read-only codebase investigation, web research, or independent review | Current workspace | Read/search and Exa web tools |
-| `execute` | One clear implementation task with focused verification | Temporary detached Git worktree | Read/search/edit/write/bash |
+| `inspect` | Read-only codebase investigation, web research, or independent review | Current workspace | Read, FFF search (preferred), built-in search fallback, and Exa web tools |
+| `execute` | One clear implementation task with focused verification | Temporary detached Git worktree | Read, FFF search (preferred), built-in search fallback, edit/write/bash |
+
+When `@ff-labs/pi-fff` is active in the parent session, subagents load and prefer its `fffind` and `ffgrep` tools. The built-in `find` and `grep` tools remain available as fallback.
 
 Subagents use an in-memory native Pi `AgentSession`; they do not inherit the parent conversation and cannot recursively invoke `subagent`. Provide a self-contained task brief.
 
