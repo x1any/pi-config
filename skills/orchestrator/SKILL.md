@@ -17,9 +17,8 @@ Resolve uncertainties that could materially change the implementation before edi
 
 **Use the right source for each knowledge gap:**
 - **`ask_user_question`** — clarify requirements, preferences, or scope decisions. Ask one question per call and do not delegate user decisions to a subagent.
-- **`subagent` scout** — perform read-only reconnaissance: locate files, trace behavior and references, identify constraints and tests, and report exact paths and line ranges. A scout must not choose the solution, define scope, or produce the implementation plan.
-- **`subagent` researcher** — collect authoritative external facts such as API behavior, migration guidance, and version-specific documentation. It informs decisions but does not make them.
-- **`subagent` worker** — execute an isolated, well-specified implementation task. Use it only when the goal, constraints, and verification are clear and no user interaction is needed.
+- **`subagent` in `inspect` mode** — perform read-only codebase reconnaissance or external research: locate files, trace behavior, identify constraints and tests, and return exact evidence. It must not choose scope or make user decisions.
+- **`subagent` in `execute` mode** — implement one isolated, well-specified change in a temporary Git worktree and return a patch. Use it only when the repository is clean, requirements and verification are clear, and no user interaction is needed.
 
 **Before any non-trivial implementation:**
 - Requirements and acceptance criteria are clear.
@@ -29,9 +28,9 @@ Resolve uncertainties that could materially change the implementation before edi
 
 ## Context Hygiene
 
-Your context window is finite. Keep broad reconnaissance out of the parent context when a concise scout report is enough.
+Your context window is finite. Keep broad reconnaissance out of the parent context when a concise inspect report is enough.
 
-**Default to a scout for multi-file exploration.** Ask for factual findings: definitions, call paths, references, dependencies, existing patterns, tests, risks, and unresolved questions. Do not ask a scout to recommend an approach or write a plan.
+**Default to `inspect` for broad multi-file exploration.** Ask for factual findings: definitions, call paths, references, dependencies, existing patterns, tests, risks, and unresolved questions. Do not ask it to choose the solution or write the parent implementation plan.
 
 **Use direct reads/searches when:**
 - The task is a tiny, targeted edit.
@@ -39,19 +38,19 @@ Your context window is finite. Keep broad reconnaissance out of the parent conte
 - You need exact source text immediately before editing.
 - One focused lookup is sufficient.
 
-Do not repeatedly read broad areas of the codebase in the parent context. Dispatch independent reconnaissance and research tasks in parallel when useful, with at most four concurrent subagents.
+Do not repeatedly read broad areas of the codebase in the parent context. Dispatch independent inspect tasks in parallel when useful; keep dependent work sequential.
 
 ### Planning After Reconnaissance
 
 After evidence is returned, the parent agent must validate it, resolve remaining ambiguities, choose the approach, and own the implementation plan.
 
-When delegating to a worker, provide a self-contained brief with the goal, relevant paths, constraints, acceptance criteria, and verification commands. The worker may implement and diagnose local failures, but must not broaden scope or redefine the plan. The parent agent reviews the resulting diff and performs final verification.
+When delegating to `execute`, provide a self-contained brief with the goal, relevant paths, constraints, acceptance criteria, and verification commands. The child may implement and diagnose local failures, but must not broaden scope or redefine the plan. The parent agent reviews the returned patch, applies it deliberately, and performs final verification in the main workspace.
 
 ### When NOT to Use Subagents
 
 - **Tiny targeted edits** where you already know the exact file and line — make the edit directly.
 - **Anything requiring user interaction** — subagents cannot ask follow-up questions.
-- **Already-completed reconnaissance** — reuse the evidence instead of re-scouting.
+- **Already-completed reconnaissance** — reuse the evidence instead of running another inspect task.
 - **Tasks without a self-contained brief** — subagents have no conversation context.
 
 ## Implementation Discipline

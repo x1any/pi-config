@@ -3,6 +3,7 @@ import {
     type ExtensionAPI,
     type ExtensionContext,
     type Theme,
+    type ToolDefinition,
     type ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
@@ -577,6 +578,63 @@ class ExaMcpBridge {
         this.connecting = undefined;
         await client?.close().catch(() => undefined);
     }
+}
+
+export interface ExaSdkToolBundle {
+    tools: ToolDefinition[];
+    close(): Promise<void>;
+}
+
+/**
+ * Create standalone Exa tool definitions for an SDK AgentSession.
+ * The caller owns the returned bundle and must call close() when the session ends.
+ */
+export function createExaSdkTools(): ExaSdkToolBundle {
+    const bridge = new ExaMcpBridge();
+    const tools: ToolDefinition[] = EXA_TOOLS.map((tool) => ({
+        // SDK subagents use stable private names even when the interactive Exa
+        // extension is configured with PI_EXA_TOOL_PREFIX.
+        name: tool.name,
+        label: tool.label,
+        description: tool.description,
+        promptSnippet: tool.promptSnippet,
+        promptGuidelines: tool.promptGuidelines,
+        parameters: tool.parameters,
+        executionMode: "parallel",
+        async execute(_toolCallId, params, signal, onUpdate) {
+            onUpdate?.({
+                content: [
+                    {
+                        type: "text",
+                        text: `Calling exa tool ${tool.name}...`,
+                    },
+                ],
+                details: {},
+            });
+            const result = await bridge.callTool(
+                tool.mcpName,
+                params as Record<string, unknown>,
+                signal,
+            );
+            const content = toPiContent(result);
+            if (result.isError) {
+                const message = content
+                    .filter((item): item is { type: "text"; text: string } => item.type === "text")
+                    .map((item) => item.text)
+                    .join("\n");
+                throw new Error(message || `Exa tool ${tool.name} failed`);
+            }
+            return {
+                content,
+                details: result,
+            };
+        },
+    }));
+
+    return {
+        tools,
+        close: () => bridge.close(),
+    };
 }
 
 function registerStatusCommand(

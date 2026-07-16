@@ -1,5 +1,0 @@
-{
-  "maxConcurrency": 4,
-  "maxStderrBytes": 20000,
-  "debug": false
-}

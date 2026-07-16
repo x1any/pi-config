@@ -61,6 +61,8 @@
 
 扩展在 `session_shutdown` 事件中调用 `bridge.close()`。
 
+`createExaSdkTools()` 为原生 SDK `AgentSession` 返回独立的工具定义和 `close()` 句柄。调用方直接把工具放入 `customTools`，并负责在短生命周期 Session 结束后关闭连接；这样无需为了使用 Web 工具加载完整 Exa 扩展运行时。
+
 ## MCP 内容转换
 
 `toPiContent()` 将 MCP `CallToolResult` 转换为 pi 工具结果内容：
