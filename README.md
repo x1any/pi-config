@@ -13,17 +13,10 @@ skills/       # Agent Skills directories containing SKILL.md
 
 | Extension | Type | Description |
 |-----------|------|-------------|
-| **subagent** | Tool | `subagent` tool — run isolated read-only `inspect` tasks or worktree-backed `execute` tasks |
 | **memory** | Feature | `/memory` (Alt+M) — persistent `MEMORY.md` project memory with toggle; agent auto-reads/updates |
 | **ask-user-question** | Tool | `ask_user_question` tool — let the LLM ask you structured single/multi-choice or free-text questions |
 | **exa** | Tool | `web_search` / `web_fetch` tools — Exa-powered web search via MCP |
 | **btw** | Command | `/btw <question>` — ask a quick side question; answer shown in a temporary overlay, zero history cost |
-
-## Included skills
-
-| Skill | Description |
-|-------|-------------|
-| **orchestrator** | Top-level session orchestration rules for subagent routing, context hygiene, and implementation discipline |
 
 ## Local install
 
@@ -94,30 +87,6 @@ description: Describe exactly when Pi should use this skill.
 Instructions...
 ```
 
-## Subagent modes
-
-The `subagent` tool intentionally exposes only two fixed modes:
-
-| Mode | Purpose | Workspace | Tools |
-|---|---|---|---|
-| `inspect` | Read-only codebase investigation, web research, or independent review | Current workspace | Read, FFF search (preferred), built-in search fallback, and Exa web tools |
-| `execute` | One clear implementation task with focused verification | Temporary detached Git worktree | Read, FFF search (preferred), built-in search fallback, edit/write/bash |
-
-When `@ff-labs/pi-fff` is active in the parent session, subagents load and prefer its `fffind` and `ffgrep` tools. The built-in `find` and `grep` tools remain available as fallback.
-
-Subagents use an in-memory native Pi `AgentSession`; they do not inherit the parent conversation and cannot recursively invoke `subagent`. Provide a self-contained task brief.
-
-Independent `inspect` calls can run in parallel. `execute` calls are serialized, require a completely clean Git repository (including no untracked files), and never modify the parent workspace directly. An execute result returns a patch path for the parent agent to review, apply, and verify.
-
-Optional `extensions/subagent/config.json` settings (see `config.example.json`):
-
-```json
-{
-  "maxConcurrency": 3,
-  "executionTimeoutMs": 600000,
-  "maxOutputBytes": 100000
-}
-```
 
 ## Add an extension
 

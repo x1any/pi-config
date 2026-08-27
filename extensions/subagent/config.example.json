@@ -1,5 +1,0 @@
-{
-  "maxConcurrency": 3,
-  "executionTimeoutMs": 600000,
-  "maxOutputBytes": 100000
-}
