@@ -1,6 +1,7 @@
 import type {
     ExtensionAPI,
     ExtensionContext,
+    Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
     Editor,
@@ -9,6 +10,7 @@ import {
     Text,
     matchesKey,
     truncateToWidth,
+    visibleWidth,
     wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -121,7 +123,7 @@ function getOtherLabel(options: AskOption[]): string {
         : "Other";
 }
 
-function createEditorTheme(theme: any): EditorTheme {
+function createEditorTheme(theme: Theme): EditorTheme {
     return {
         borderColor: (s) => theme.fg("accent", s),
         selectList: {
@@ -140,7 +142,7 @@ function addWrapped(
     width: number,
     indent = "",
 ): void {
-    const contentWidth = Math.max(1, width - indent.length);
+    const contentWidth = Math.max(1, width - visibleWidth(indent));
     for (const line of wrapTextWithAnsi(text, contentWidth)) {
         lines.push(truncateToWidth(`${indent}${line}`, width));
     }
@@ -276,14 +278,10 @@ async function askSingleChoice(
     ];
 
     return ctx.ui.custom<AskAnswer | null>(
-        (
-            tui: any,
-            theme: any,
-            _kb: any,
-            done: (result: AskAnswer | null) => void,
-        ) => {
+        (tui, theme, _keybindings, done) => {
             let optionIndex = 0;
             let editMode = false;
+            let cachedWidth: number | undefined;
             let cachedLines: string[] | undefined;
             const editor = new Editor(tui, createEditorTheme(theme));
 
@@ -346,17 +344,28 @@ async function askSingleChoice(
             }
 
             function render(width: number): string[] {
-                if (cachedLines) return cachedLines;
+                const renderWidth = Math.max(1, width);
+                if (cachedLines && cachedWidth === renderWidth) {
+                    return cachedLines;
+                }
 
                 const lines: string[] = [];
                 const add = (text: string) =>
-                    lines.push(truncateToWidth(text, width));
+                    lines.push(truncateToWidth(text, renderWidth));
 
-                add(theme.fg("accent", "─".repeat(width)));
-                addWrapped(lines, theme.fg("text", ` ${question}`), width);
+                add(theme.fg("accent", "─".repeat(renderWidth)));
+                addWrapped(
+                    lines,
+                    theme.fg("text", ` ${question}`),
+                    renderWidth,
+                );
                 if (context) {
                     lines.push("");
-                    addWrapped(lines, theme.fg("muted", ` ${context}`), width);
+                    addWrapped(
+                        lines,
+                        theme.fg("muted", ` ${context}`),
+                        renderWidth,
+                    );
                 }
                 lines.push("");
 
@@ -375,7 +384,7 @@ async function askSingleChoice(
                         addWrapped(
                             lines,
                             theme.fg("muted", option.description),
-                            width,
+                            renderWidth,
                             "     ",
                         );
                     }
@@ -384,7 +393,9 @@ async function askSingleChoice(
                 if (editMode) {
                     lines.push("");
                     add(theme.fg("muted", " Write your custom answer:"));
-                    for (const line of editor.render(Math.max(1, width - 2))) {
+                    for (const line of editor.render(
+                        Math.max(1, renderWidth - 2),
+                    )) {
                         add(` ${line}`);
                     }
                     lines.push("");
@@ -399,15 +410,26 @@ async function askSingleChoice(
                     );
                 }
 
-                add(theme.fg("accent", "─".repeat(width)));
+                add(theme.fg("accent", "─".repeat(renderWidth)));
+                cachedWidth = renderWidth;
                 cachedLines = lines;
                 return lines;
             }
 
             return {
+                // Propagate focus for IME cursor positioning in the editor.
+                get focused() {
+                    return editor.focused;
+                },
+                set focused(value: boolean) {
+                    editor.focused = value;
+                    cachedLines = undefined;
+                },
                 render,
                 invalidate: () => {
+                    cachedWidth = undefined;
                     cachedLines = undefined;
+                    editor.invalidate();
                 },
                 handleInput,
             };
@@ -440,14 +462,10 @@ async function askMultiChoice(
     ];
 
     return ctx.ui.custom<AskAnswer[] | null>(
-        (
-            tui: any,
-            theme: any,
-            _kb: any,
-            done: (result: AskAnswer[] | null) => void,
-        ) => {
+        (tui, theme, _keybindings, done) => {
             let optionIndex = 0;
             let editMode = false;
+            let cachedWidth: number | undefined;
             let cachedLines: string[] | undefined;
             const selected = new Map<string, AskAnswer>();
             const editor = new Editor(tui, createEditorTheme(theme));
@@ -551,17 +569,28 @@ async function askMultiChoice(
             }
 
             function render(width: number): string[] {
-                if (cachedLines) return cachedLines;
+                const renderWidth = Math.max(1, width);
+                if (cachedLines && cachedWidth === renderWidth) {
+                    return cachedLines;
+                }
 
                 const lines: string[] = [];
                 const add = (text: string) =>
-                    lines.push(truncateToWidth(text, width));
+                    lines.push(truncateToWidth(text, renderWidth));
 
-                add(theme.fg("accent", "─".repeat(width)));
-                addWrapped(lines, theme.fg("text", ` ${question}`), width);
+                add(theme.fg("accent", "─".repeat(renderWidth)));
+                addWrapped(
+                    lines,
+                    theme.fg("text", ` ${question}`),
+                    renderWidth,
+                );
                 if (context) {
                     lines.push("");
-                    addWrapped(lines, theme.fg("muted", ` ${context}`), width);
+                    addWrapped(
+                        lines,
+                        theme.fg("muted", ` ${context}`),
+                        renderWidth,
+                    );
                 }
                 lines.push("");
 
@@ -613,7 +642,7 @@ async function askMultiChoice(
                         addWrapped(
                             lines,
                             theme.fg("muted", item.description),
-                            width,
+                            renderWidth,
                             "     ",
                         );
                     }
@@ -622,7 +651,9 @@ async function askMultiChoice(
                 if (editMode) {
                     lines.push("");
                     add(theme.fg("muted", " Write your custom answer:"));
-                    for (const line of editor.render(Math.max(1, width - 2))) {
+                    for (const line of editor.render(
+                        Math.max(1, renderWidth - 2),
+                    )) {
                         add(` ${line}`);
                     }
                     lines.push("");
@@ -645,33 +676,31 @@ async function askMultiChoice(
                     );
                 }
 
-                add(theme.fg("accent", "─".repeat(width)));
+                add(theme.fg("accent", "─".repeat(renderWidth)));
+                cachedWidth = renderWidth;
                 cachedLines = lines;
                 return lines;
             }
 
             return {
+                // Propagate focus for IME cursor positioning in the editor.
+                get focused() {
+                    return editor.focused;
+                },
+                set focused(value: boolean) {
+                    editor.focused = value;
+                    cachedLines = undefined;
+                },
                 render,
                 invalidate: () => {
+                    cachedWidth = undefined;
                     cachedLines = undefined;
+                    editor.invalidate();
                 },
                 handleInput,
             };
         },
     );
-}
-
-// Mutex to serialize concurrent UI interactions.
-// showExtensionCustom/editor can only handle one active call at a time.
-let uiLock: Promise<void> = Promise.resolve();
-
-function withUILock<T>(fn: () => Promise<T>): Promise<T> {
-    const prev = uiLock;
-    let release: () => void;
-    uiLock = new Promise<void>((r) => {
-        release = r;
-    });
-    return prev.then(fn).finally(() => release!());
 }
 
 export default function askUserQuestion(pi: ExtensionAPI) {
@@ -681,17 +710,19 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         description:
             "Ask the user a single question and pause execution until they answer. Use this when requirements are ambiguous, user preferences are needed, a decision would materially affect implementation, or you need confirmation before proceeding. Ask exactly one question per tool call, and prefer multiple separate tool calls over bundling unrelated questions together.",
         promptSnippet:
-            "Use this tool to ask exactly one clarifying question, missing-requirement question, preference question, or decision question before continuing.",
+            "Ask exactly one clarifying question, missing-requirement question, preference question, or decision question before continuing.",
         promptGuidelines: [
-            "Ask exactly one question per tool call.",
+            "Use ask_user_question to ask exactly one question per tool call.",
             "If you need answers to multiple questions, make multiple separate ask_user_question tool calls instead of combining them into one prompt.",
-            'Users will always be able to select "Other" to provide custom text input when options are provided.',
-            "Use multiSelect: true only when you need multiple answers to the same question.",
-            'If you recommend a specific option, make it the first option in the list and add "(Recommended)" at the end of the label.',
-            "Prefer this tool over guessing when requirements, preferences, or implementation choices are unclear.",
-            "Use this tool when multiple valid implementation paths exist and the preferred path depends on user choice.",
+            'When ask_user_question provides options, users can always select "Other" and enter custom text.',
+            "Set ask_user_question multiSelect to true only when one question needs multiple answers.",
+            'When recommending an ask_user_question option, place it first and append "(Recommended)" to its label.',
+            "Prefer ask_user_question over guessing when requirements, preferences, or implementation choices are unclear.",
+            "Use ask_user_question when multiple valid implementation paths exist and the preferred path depends on user choice.",
         ],
         parameters: AskUserQuestionParams,
+        // Blocking prompts must not overlap with sibling tool calls.
+        executionMode: "sequential",
 
         async execute(_toolCallId, params, signal, _onUpdate, ctx) {
             const options = normalizeOptions(params.options);
@@ -716,50 +747,55 @@ export default function askUserQuestion(pi: ExtensionAPI) {
                 );
             }
 
-            return withUILock(async () => {
-                if (mode === "text") {
-                    const editorTitle = context
-                        ? `${params.question}\n\n${context}`
-                        : params.question;
-                    const answer = await ctx.ui.editor(editorTitle);
-                    if (answer === undefined) {
-                        return cancelledResult(params.question, mode, context);
-                    }
-                    return buildResult(params.question, context, mode, [
-                        {
-                            type: "text",
-                            label: answer.trim(),
-                            value: answer.trim(),
-                        },
-                    ]);
-                }
+            if (mode !== "text" && ctx.mode !== "tui") {
+                return unavailableResult(
+                    params.question,
+                    mode,
+                    "ask_user_question option selection requires TUI mode",
+                    context,
+                );
+            }
 
-                if (mode === "single-select") {
-                    const answer = await askSingleChoice(
-                        ctx,
-                        params.question,
-                        context,
-                        options,
-                    );
-                    if (!answer) {
-                        return cancelledResult(params.question, mode, context);
-                    }
-                    return buildResult(params.question, context, mode, [
-                        answer,
-                    ]);
+            if (mode === "text") {
+                const editorTitle = context
+                    ? `${params.question}\n\n${context}`
+                    : params.question;
+                const answer = await ctx.ui.editor(editorTitle);
+                if (answer === undefined) {
+                    return cancelledResult(params.question, mode, context);
                 }
+                return buildResult(params.question, context, mode, [
+                    {
+                        type: "text",
+                        label: answer.trim(),
+                        value: answer.trim(),
+                    },
+                ]);
+            }
 
-                const answers = await askMultiChoice(
+            if (mode === "single-select") {
+                const answer = await askSingleChoice(
                     ctx,
                     params.question,
                     context,
                     options,
                 );
-                if (!answers) {
+                if (!answer) {
                     return cancelledResult(params.question, mode, context);
                 }
-                return buildResult(params.question, context, mode, answers);
-            });
+                return buildResult(params.question, context, mode, [answer]);
+            }
+
+            const answers = await askMultiChoice(
+                ctx,
+                params.question,
+                context,
+                options,
+            );
+            if (!answers) {
+                return cancelledResult(params.question, mode, context);
+            }
+            return buildResult(params.question, context, mode, answers);
         },
 
         renderCall(args, theme) {
