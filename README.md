@@ -15,7 +15,6 @@ skills/       # Agent Skills directories containing SKILL.md
 |-----------|------|-------------|
 | **memory** | Feature | `/memory` (Alt+M) — persistent `MEMORY.md` project memory with toggle; agent auto-reads/updates |
 | **ask-user-question** | Tool | `ask_user_question` tool — let the LLM ask you structured single/multi-choice or free-text questions |
-| **exa** | Tool | `web_search` / `web_fetch` tools — Exa-powered web search via MCP |
 | **btw** | Command | `/btw <question>` — ask a quick side question; answer shown in a temporary overlay, zero history cost |
 
 ## Local install
@@ -42,6 +41,7 @@ pi install npm:@upstash/context7-pi
 pi install npm:@davecodes/pi-dcp
 pi install npm:@ff-labs/pi-fff
 pi install npm:pi-simplify
+pi install npm:pi-web-access
 ```
 
 Or keep them together in Pi's user `settings.json`:
@@ -53,7 +53,8 @@ Or keep them together in Pi's user `settings.json`:
     "npm:@upstash/context7-pi",
     "npm:@davecodes/pi-dcp",
     "npm:@ff-labs/pi-fff",
-    "npm:pi-simplify"
+    "npm:pi-simplify",
+    "npm:pi-web-access"
   ]
 }
 ```
